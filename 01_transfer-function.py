@@ -15,6 +15,7 @@ CONFIG = {
     "input_audio": "data/trumpet_mutes/trumpet.wav",
     "target_audio": "data/trumpet_mutes/trumpet_harmon.wav",
     "filter_length": 64,
+    "loss_type": "spectral",  # "mse" or "spectral"
     "num_steps": 500,
     "lr": 1e-2,
     "noise_length": 16000,
@@ -103,7 +104,11 @@ def load_audio_mode(config):
 # TRAINING
 # ===================================================
 
-def train_filter(x, y_target, config):
+def train_filter(
+    x,
+    y_target,
+    config
+):
     """Learns FIR filter via gradient descent"""
 
     L = config["filter_length"]
@@ -127,7 +132,13 @@ def train_filter(x, y_target, config):
         y_target_crop = y_target[..., :min_len]
         y_pred = y_pred[..., :min_len]
 
-        loss = torch.mean((y_pred - y_target_crop) ** 2)
+        if config["loss_type"] == "mse":
+            loss = torch.mean((y_pred - y_target_crop) ** 2)
+        elif config["loss_type"] == "spectral":
+            loss = torch.mean(
+                (torch.stft(y_pred[0, 0], 512, return_complex=True).abs()
+                - torch.stft(y_target[0, 0], 512, return_complex=True).abs()) ** 2
+            )
 
         opt.zero_grad()
         loss.backward()
@@ -187,6 +198,7 @@ def run_animation(
     ax_l.set_xlim(0, num_steps)
 
     ax_l.set_yscale("linear")
+    ax_l.set_ylim(0, max(losses))
 
     def update(i):
 
@@ -207,13 +219,27 @@ def run_animation(
 
         return line_f, line_g, line_l, line_s
 
-    ani = FuncAnimation(fig, update, frames=num_steps, interval=50, blit=False)
+    ani = FuncAnimation(
+        fig,
+        update,
+        frames=num_steps,
+        interval=20,   # irrelevant beim Export
+        blit=False
+    )
 
     plt.tight_layout()
-    plt.show()
+
+    # SAVE VIDEO
+    ani.save(
+        "ddsp_training.mp4",
+        writer="ffmpeg",
+        fps=30,
+        dpi=150
+    )
+
+    print("Saved video: ddsp_training.mp4")
 
     return ani
-
 
 def apply_and_save_filter(x, h, sr, out_path="filtered_output.wav"):
     """
