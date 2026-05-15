@@ -1,0 +1,17 @@
+# pyproject.toml
+
+[project]
+name = "ddsp-system-identification"
+version = "0.1.0"
+description = "Toy example for learning FIR filters with PyTorch"
+requires-python = ">=3.11"
+
+dependencies = [
+    "torch",
+    "torchaudio",
+    "numpy",
+    "matplotlib",
+]
+
+[tool.uv]
+dev-dependencies = []
