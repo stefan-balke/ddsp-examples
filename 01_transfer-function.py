@@ -11,10 +11,10 @@ from matplotlib.animation import FuncAnimation
 # ===================================================
 
 CONFIG = {
-    "use_noise": True,
-    "input_audio": "trumpet_open.wav",
-    "target_audio": "trumpet_muted.wav",
-    "filter_length": 128,
+    "use_noise": False,
+    "input_audio": "data/trumpet_mutes/trumpet.wav",
+    "target_audio": "data/trumpet_mutes/trumpet_harmon.wav",
+    "filter_length": 64,
     "num_steps": 500,
     "lr": 1e-2,
     "noise_length": 16000,
@@ -215,6 +215,29 @@ def run_animation(
     return ani
 
 
+def apply_and_save_filter(x, h, sr, out_path="filtered_output.wav"):
+    """
+    Applies learned FIR filter to audio and saves result.
+    """
+
+    with torch.no_grad():
+
+        y = F.conv1d(
+            x,
+            h,
+            padding=h.shape[-1] // 2
+        )
+
+        # remove batch dimension
+        y = y.squeeze(0).cpu()
+
+        # normalize to avoid clipping
+        y = y / (y.abs().max() + 1e-8)
+
+        torchaudio.save(out_path, y, sr)
+
+        print(f"Saved filtered audio to {out_path}")
+
 # ===================================================
 # MAIN
 # ===================================================
@@ -227,6 +250,13 @@ def main():
 
     h, losses, filters, gradients, spectra_pred, target_fft = train_filter(
         x, y_target, config
+    )
+
+    apply_and_save_filter(
+        x=x,
+        h=h,
+        sr=sr,
+        out_path="learned_filter_output.wav"
     )
 
     ani = run_animation(
@@ -257,6 +287,7 @@ def main():
         plt.title("True vs Learned Filter")
 
         plt.show()
+
 
 
 if __name__ == "__main__":
